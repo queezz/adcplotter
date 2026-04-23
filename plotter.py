@@ -73,14 +73,14 @@ class MainWindow(QtWidgets.QMainWindow):
         area = DockArea()
         self.setCentralWidget(area)
 
-        plot_dock = Dock("Plot", size=(1000, 500))
-        channels_dock = Dock("Channels", size=(1000, 250))
-        controls_dock = Dock("Controls", size=(1000, 60))
+        # --- Docks ---
+        channels_dock = Dock("Channels", size=(300, 800))
+        plot_dock = Dock("Plot", size=(900, 800))
 
-        area.addDock(plot_dock, "top")
-        area.addDock(channels_dock, "bottom", plot_dock)
-        area.addDock(controls_dock, "bottom", channels_dock)
+        area.addDock(channels_dock, "left")
+        area.addDock(plot_dock, "right", channels_dock)
 
+        # --- Plot ---
         self.plot_widget = pg.PlotWidget()
         self.plot_widget.setLabel("left", "Voltage", units="V")
         self.plot_widget.setLabel("bottom", "Time", units="s")
@@ -97,11 +97,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         plot_dock.addWidget(self.plot_widget)
 
+        # --- Channel panel ---
         panel_widget = QtWidgets.QWidget()
         panel_layout = QtWidgets.QGridLayout(panel_widget)
         panel_layout.setContentsMargins(8, 8, 8, 8)
-        panel_layout.setHorizontalSpacing(24)
-        panel_layout.setVerticalSpacing(6)
+        panel_layout.setHorizontalSpacing(12)
+        panel_layout.setVerticalSpacing(2)
 
         self.channel_checkboxes = []
         self.channel_labels = []
@@ -141,18 +142,21 @@ class MainWindow(QtWidgets.QMainWindow):
         scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
         scroll.setWidget(panel_widget)
 
-        channels_dock.addWidget(scroll)
+        # --- Channels dock container (panel + controls) ---
+        channels_container = QtWidgets.QWidget()
+        channels_layout = QtWidgets.QVBoxLayout(channels_container)
+        channels_layout.setContentsMargins(6, 6, 6, 6)
 
-        controls_widget = QtWidgets.QWidget()
-        controls_layout = QtWidgets.QHBoxLayout(controls_widget)
-        controls_layout.setContentsMargins(8, 8, 8, 8)
+        channels_layout.addWidget(scroll)
 
         self.start_stop_button = QtWidgets.QPushButton("Start")
-        controls_layout.addWidget(self.start_stop_button)
-        controls_layout.addStretch()
+        channels_layout.addWidget(self.start_stop_button)
 
-        controls_dock.addWidget(controls_widget)    
+        channels_dock.addWidget(channels_container)
 
+        # --- Make plot dominant ---
+        plot_dock.setStretch(10, 10)
+        channels_dock.setStretch(1, 10)
 
     def update_visibility(self):
         for i in range(NCHANNELS):
