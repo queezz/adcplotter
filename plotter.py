@@ -157,7 +157,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- Channels dock container (panel + controls) ---
         channels_container = QtWidgets.QWidget()
-        channels_container.setMaximumWidth(350)
+        channels_dock.setMinimumWidth(250)
         channels_container.setSizePolicy(
             QtWidgets.QSizePolicy.Preferred,
             QtWidgets.QSizePolicy.Expanding
