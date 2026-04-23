@@ -5,6 +5,7 @@ import pandas as pd
 import smbus
 from PyQt5 import QtGui, QtCore, QtWidgets
 import pyqtgraph as pg
+from pyqtgraph.dockarea import DockArea, Dock
 from AIO import AIO_32_0RA_IRC
 
 NCHANNELS = 32
@@ -69,11 +70,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.move(qr.topLeft())
 
     def setup_ui(self):
-        central_widget = QtWidgets.QWidget()
-        self.setCentralWidget(central_widget)
-        layout = QtWidgets.QVBoxLayout(central_widget)
+        area = DockArea()
+        self.setCentralWidget(area)
 
-        # --- Plot ---
+        plot_dock = Dock("Plot", size=(1000, 500))
+        channels_dock = Dock("Channels", size=(1000, 250))
+        controls_dock = Dock("Controls", size=(1000, 60))
+
+        area.addDock(plot_dock, "top")
+        area.addDock(channels_dock, "bottom", plot_dock)
+        area.addDock(controls_dock, "bottom", channels_dock)
+
         self.plot_widget = pg.PlotWidget()
         self.plot_widget.setLabel("left", "Voltage", units="V")
         self.plot_widget.setLabel("bottom", "Time", units="s")
@@ -85,24 +92,26 @@ class MainWindow(QtWidgets.QMainWindow):
             for i in range(NCHANNELS)
         ]
 
-        # initially show only CH0
         for i in range(NCHANNELS):
             self.plot_curves[i].setVisible(i == 0)
 
-        layout.addWidget(self.plot_widget)
+        plot_dock.addWidget(self.plot_widget)
 
-        # --- Channel panel ---
         panel_widget = QtWidgets.QWidget()
         panel_layout = QtWidgets.QGridLayout(panel_widget)
+        panel_layout.setContentsMargins(8, 8, 8, 8)
+        panel_layout.setHorizontalSpacing(24)
+        panel_layout.setVerticalSpacing(6)
 
         self.channel_checkboxes = []
         self.channel_labels = []
 
         cols = 4
+        rows = (NCHANNELS + cols - 1) // cols
 
         for i in range(NCHANNELS):
-            row = i % (NCHANNELS // cols)
-            col = i // (NCHANNELS // cols)
+            row = i % rows
+            col = i // rows
 
             cb = QtWidgets.QCheckBox()
             cb.setChecked(i == 0)
@@ -112,26 +121,38 @@ class MainWindow(QtWidgets.QMainWindow):
             label = QtWidgets.QLabel(f"CH{i}")
             label.setStyleSheet(f"color: {color.name()}; font-weight: bold;")
 
-            hbox = QtWidgets.QHBoxLayout()
-            hbox.addWidget(cb)
-            hbox.addWidget(label)
-            hbox.setContentsMargins(2, 2, 2, 2)
+            row_widget = QtWidgets.QWidget()
+            row_layout = QtWidgets.QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(6)
+            row_layout.addWidget(cb)
+            row_layout.addWidget(label)
+            row_layout.addStretch()
 
-            container = QtWidgets.QWidget()
-            container.setLayout(hbox)
-
-            panel_layout.addWidget(container, row, col)
+            panel_layout.addWidget(row_widget, row, col)
 
             self.channel_checkboxes.append(cb)
             self.channel_labels.append(label)
 
-        layout.addWidget(panel_widget)
+        panel_layout.setRowStretch(rows, 1)
 
-        # --- Start/Stop ---
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        scroll.setWidget(panel_widget)
+
+        channels_dock.addWidget(scroll)
+
+        controls_widget = QtWidgets.QWidget()
+        controls_layout = QtWidgets.QHBoxLayout(controls_widget)
+        controls_layout.setContentsMargins(8, 8, 8, 8)
+
         self.start_stop_button = QtWidgets.QPushButton("Start")
-        layout.addWidget(self.start_stop_button)
+        controls_layout.addWidget(self.start_stop_button)
+        controls_layout.addStretch()
 
-        self.center()
+        controls_dock.addWidget(controls_widget)    
+
 
     def update_visibility(self):
         for i in range(NCHANNELS):
