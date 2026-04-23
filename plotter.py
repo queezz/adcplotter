@@ -60,14 +60,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.app = app
         self.setWindowTitle("ADC Data Acquisition")
         self.setup_ui()
+        self.showMaximized()
         self.running = False
         self.start_stop_button.clicked.connect(self.start_stop_acquisition)
-
-    def center(self):
-        qr = self.frameGeometry()
-        cp = QtWidgets.QDesktopWidget().availableGeometry().center()
-        qr.moveCenter(cp)
-        self.move(qr.topLeft())
 
     def setup_ui(self):
         area = DockArea()
@@ -76,12 +71,18 @@ class MainWindow(QtWidgets.QMainWindow):
         # --- Docks ---
         channels_dock = Dock("Channels", size=(300, 800))
         plot_dock = Dock("Plot", size=(900, 800))
+        channels_dock.setMaximumWidth(350)
 
         area.addDock(channels_dock, "left")
         area.addDock(plot_dock, "right", channels_dock)
 
         # --- Plot ---
         self.plot_widget = pg.PlotWidget()
+        self.plot_widget.setMinimumSize(600, 400)
+        self.plot_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Expanding
+        )
         self.plot_widget.setLabel("left", "Voltage", units="V")
         self.plot_widget.setLabel("bottom", "Time", units="s")
         self.plot_widget.showGrid(x=True, y=True)
@@ -99,10 +100,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- Channel panel ---
         panel_widget = QtWidgets.QWidget()
+        panel_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred,
+            QtWidgets.QSizePolicy.Maximum
+        )
         panel_layout = QtWidgets.QGridLayout(panel_widget)
         panel_layout.setContentsMargins(8, 8, 8, 8)
-        panel_layout.setHorizontalSpacing(12)
+        panel_layout.setHorizontalSpacing(8)
         panel_layout.setVerticalSpacing(2)
+        panel_layout.setAlignment(QtCore.Qt.AlignTop)
 
         self.channel_checkboxes = []
         self.channel_labels = []
@@ -123,9 +129,13 @@ class MainWindow(QtWidgets.QMainWindow):
             label.setStyleSheet(f"color: {color.name()}; font-weight: bold;")
 
             row_widget = QtWidgets.QWidget()
+            row_widget.setSizePolicy(
+                QtWidgets.QSizePolicy.Preferred,
+                QtWidgets.QSizePolicy.Fixed
+            )
             row_layout = QtWidgets.QHBoxLayout(row_widget)
             row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(6)
+            row_layout.setSpacing(4)
             row_layout.addWidget(cb)
             row_layout.addWidget(label)
             row_layout.addStretch()
@@ -135,28 +145,40 @@ class MainWindow(QtWidgets.QMainWindow):
             self.channel_checkboxes.append(cb)
             self.channel_labels.append(label)
 
-        panel_layout.setRowStretch(rows, 1)
-
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        scroll.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred,
+            QtWidgets.QSizePolicy.Expanding
+        )
         scroll.setWidget(panel_widget)
 
         # --- Channels dock container (panel + controls) ---
         channels_container = QtWidgets.QWidget()
+        channels_container.setMaximumWidth(350)
+        channels_container.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred,
+            QtWidgets.QSizePolicy.Expanding
+        )
         channels_layout = QtWidgets.QVBoxLayout(channels_container)
         channels_layout.setContentsMargins(6, 6, 6, 6)
-
-        channels_layout.addWidget(scroll)
+        channels_layout.setSpacing(6)
+        channels_layout.addWidget(scroll, 1)
 
         self.start_stop_button = QtWidgets.QPushButton("Start")
+        self.start_stop_button.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred,
+            QtWidgets.QSizePolicy.Fixed
+        )
         channels_layout.addWidget(self.start_stop_button)
 
         channels_dock.addWidget(channels_container)
 
         # --- Make plot dominant ---
         plot_dock.setStretch(10, 10)
-        channels_dock.setStretch(1, 10)
+        channels_dock.setStretch(1, 1)
 
     def update_visibility(self):
         for i in range(NCHANNELS):
@@ -220,5 +242,4 @@ class MainWindow(QtWidgets.QMainWindow):
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     mainWindow = MainWindow()
-    mainWindow.show()
     sys.exit(app.exec_())
