@@ -1,5 +1,4 @@
 import sys
-import time
 import numpy as np
 import pandas as pd
 import smbus
@@ -51,7 +50,7 @@ class ADCWorker(QtCore.QObject):
     def run(self):
         while self.running:
             self.read_adc()
-            time.sleep(0.2)
+            QtCore.QThread.msleep(200)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -194,18 +193,15 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(self.plot_data) > MAX_POINTS:
             self.plot_data = self.plot_data.iloc[-MAX_POINTS:]
 
-        t = self.plot_data["t"]
+        t = self.plot_data["t"].to_numpy()
 
         for ch in range(NCHANNELS):
             if self.channel_checkboxes[ch].isChecked():
+                y = self.plot_data[f"Channel {ch}"].to_numpy()
                 self.plot_curves[ch].setData(
                     t,
-                    self.plot_data[f"Channel {ch}"]
+                    y
                 )
-
-    def del_thread(self):
-        self.adc_thread.quit()
-        self.adc_thread.wait()
 
     def connect_worker_signals(self):
         self.adc_worker.data_ready.connect(self.update_plot)
@@ -221,6 +217,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.adc_thread = QtCore.QThread(self)
         self.adc_worker.moveToThread(self.adc_thread)
+        self.adc_thread.finished.connect(self.adc_worker.deleteLater)
         self.adc_thread.started.connect(self.adc_worker.start)
         self.adc_thread.start()
 
@@ -234,7 +231,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.running:
             self.running = False
             self.adc_worker.stop()
-            self.del_thread()
+            self.adc_thread.quit()
+            self.adc_thread.wait()
             self.start_stop_button.setText("Start")
             return
 
