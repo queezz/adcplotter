@@ -39,6 +39,7 @@ class ADCWorker(QtCore.QObject):
         now = pd.Timestamp.now()
         data["Timestamp"] = now
         data["t"] = pd.Timedelta(now - self.start_time).total_seconds()
+
         for channel in range(NCHANNELS):
             data[f"Channel {channel}"] = self.adc.analog_read_volt(channel, self.data_rate)
 
@@ -72,6 +73,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QtWidgets.QVBoxLayout(central_widget)
 
+        # --- Plot ---
         self.plot_widget = pg.PlotWidget()
         self.plot_widget.setLabel("left", "Voltage", units="V")
         self.plot_widget.setLabel("bottom", "Time", units="s")
@@ -83,19 +85,60 @@ class MainWindow(QtWidgets.QMainWindow):
             for i in range(NCHANNELS)
         ]
 
+        # initially show only CH0
+        for i in range(NCHANNELS):
+            self.plot_curves[i].setVisible(i == 0)
+
         layout.addWidget(self.plot_widget)
 
-        # Channel selector
-        self.channel_selector = QtWidgets.QComboBox()
-        self.channel_selector.addItem("All")
-        for i in range(NCHANNELS):
-            self.channel_selector.addItem(f"Channel {i}")
-        layout.addWidget(self.channel_selector)
+        # --- Channel panel ---
+        panel_widget = QtWidgets.QWidget()
+        panel_layout = QtWidgets.QGridLayout(panel_widget)
 
+        self.channel_checkboxes = []
+        self.channel_labels = []
+
+        cols = 4
+
+        for i in range(NCHANNELS):
+            row = i % (NCHANNELS // cols)
+            col = i // (NCHANNELS // cols)
+
+            cb = QtWidgets.QCheckBox()
+            cb.setChecked(i == 0)
+            cb.stateChanged.connect(self.update_visibility)
+
+            color = pg.intColor(i, hues=NCHANNELS)
+            label = QtWidgets.QLabel(f"CH{i}")
+            label.setStyleSheet(f"color: {color.name()}; font-weight: bold;")
+
+            hbox = QtWidgets.QHBoxLayout()
+            hbox.addWidget(cb)
+            hbox.addWidget(label)
+            hbox.setContentsMargins(2, 2, 2, 2)
+
+            container = QtWidgets.QWidget()
+            container.setLayout(hbox)
+
+            panel_layout.addWidget(container, row, col)
+
+            self.channel_checkboxes.append(cb)
+            self.channel_labels.append(label)
+
+        layout.addWidget(panel_widget)
+
+        # --- Start/Stop ---
         self.start_stop_button = QtWidgets.QPushButton("Start")
         layout.addWidget(self.start_stop_button)
 
         self.center()
+
+    def update_visibility(self):
+        for i in range(NCHANNELS):
+            visible = self.channel_checkboxes[i].isChecked()
+            self.plot_curves[i].setVisible(visible)
+
+        self.plot_widget.enableAutoRange(axis=pg.ViewBox.YAxis)
 
     @QtCore.pyqtSlot(pd.DataFrame)
     def update_plot(self, data):
@@ -104,24 +147,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(self.plot_data) > MAX_POINTS:
             self.plot_data = self.plot_data.iloc[-MAX_POINTS:]
 
-        selected = self.channel_selector.currentText()
+        t = self.plot_data["t"]
 
-        if selected == "All":
-            for ch in range(NCHANNELS):
-                self.plot_curves[ch].setVisible(True)
+        for ch in range(NCHANNELS):
+            if self.channel_checkboxes[ch].isChecked():
                 self.plot_curves[ch].setData(
-                    self.plot_data["t"],
+                    t,
                     self.plot_data[f"Channel {ch}"]
                 )
-        else:
-            ch = int(selected.split()[-1])
-            for i in range(NCHANNELS):
-                self.plot_curves[i].setVisible(i == ch)
-
-            self.plot_curves[ch].setData(
-                self.plot_data["t"],
-                self.plot_data[f"Channel {ch}"]
-            )
 
     def del_thread(self):
         self.adc_thread.quit()
